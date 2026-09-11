@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>MyFitness Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MyFitness">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-icon">🔥</span>
+      <h1>MyFitness</h1>
+    </div>
+    <div class="header-actions">
+      <div class="streak-badge" id="streakBadge">
+        <span class="streak-flame">🔥</span>
+        <span class="streak-count" id="streakCount">0</span>
+        <span class="streak-label">day streak</span>
+      </div>
+      <button class="icon-btn" id="themeToggleBtn" aria-label="Toggle light/dark theme">🌙</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="motivation-card" id="motivationCard">
+      <p id="motivationMessage">Loading your motivation...</p>
+    </section>
+
+    <section class="card calendar-card">
+      <div class="calendar-header">
+        <button class="icon-btn" id="prevMonthBtn" aria-label="Previous month">&#8592;</button>
+        <h2 id="calendarTitle">Month Year</h2>
+        <button class="icon-btn" id="nextMonthBtn" aria-label="Next month">&#8594;</button>
+      </div>
+      <div class="weekday-row" id="weekdayRow"></div>
+      <div class="calendar-grid" id="calendarGrid"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <section class="card stats-card">
+      <h2>Your Stats</h2>
+      <div class="stats-grid">
+        <div class="stat-tile">
+          <span class="stat-value" id="statTotal">0</span>
+          <span class="stat-label">Total sessions</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="statWeek">0</span>
+          <span class="stat-label">This week</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="statMonth">0</span>
+          <span class="stat-label">This month</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="statYear">0</span>
+          <span class="stat-label">This year</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="statBestStreak">0</span>
+          <span class="stat-label">Best streak</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="statTypesUsed">0</span>
+          <span class="stat-label">Activity types</span>
+        </div>
+      </div>
+      <h3>By activity</h3>
+      <div class="type-breakdown" id="typeBreakdown"></div>
+    </section>
+  </main>
+
+  <button class="fab" id="addSessionFab" aria-label="Log a session">+</button>
+
+  <!-- Add / edit session modal -->
+  <div class="modal-overlay" id="sessionModalOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sessionModalTitle">
+      <div class="modal-header">
+        <h2 id="sessionModalTitle">Log a session</h2>
+        <button class="icon-btn" id="closeSessionModalBtn" aria-label="Close">&times;</button>
+      </div>
+      <form id="sessionForm">
+        <label class="field-label" for="typeSelect">Activity type</label>
+        <div class="type-picker" id="typePicker"></div>
+
+        <label class="field-label" for="dateInput">Date</label>
+        <input type="date" id="dateInput" required>
+
+        <label class="field-label" for="durationInput">Duration (minutes)</label>
+        <input type="number" id="durationInput" min="1" max="600" placeholder="e.g. 30">
+
+        <label class="field-label" for="notesInput">Notes (optional)</label>
+        <textarea id="notesInput" rows="2" placeholder="How did it go?"></textarea>
+
+        <input type="hidden" id="editingIdInput">
+        <button type="submit" class="primary-btn">Save session</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Day detail modal -->
+  <div class="modal-overlay" id="dayModalOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dayModalTitle">
+      <div class="modal-header">
+        <h2 id="dayModalTitle">Day details</h2>
+        <button class="icon-btn" id="closeDayModalBtn" aria-label="Close">&times;</button>
+      </div>
+      <div id="daySessionsList" class="day-sessions-list"></div>
+      <button class="secondary-btn" id="addSessionForDayBtn">+ Log session for this day</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

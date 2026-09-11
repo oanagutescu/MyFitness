@@ -1,0 +1,19 @@
+{
+  "name": "MyFitness Tracker",
+  "short_name": "MyFitness",
+  "description": "Track your fitness sessions, build streaks and stay motivated.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
