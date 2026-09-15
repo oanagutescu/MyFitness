@@ -23,60 +23,108 @@
       <div class="streak-badge" id="streakBadge">
         <span class="streak-flame">🔥</span>
         <span class="streak-count" id="streakCount">0</span>
-        <span class="streak-label">day streak</span>
+        <span class="streak-label" id="streakLabel">day streak</span>
+        <button type="button" class="streak-toggle" id="streakModeToggle" aria-label="Toggle between overall and fitness-only streak">💪</button>
       </div>
+      <button class="icon-btn" id="pageToggleBtn" aria-label="Switch to Wellness page">🧘</button>
       <button class="icon-btn" id="themeToggleBtn" aria-label="Toggle light/dark theme">🌙</button>
     </div>
   </header>
 
-  <main>
-    <section class="motivation-card" id="motivationCard">
-      <p id="motivationMessage">Loading your motivation...</p>
-    </section>
+  <div class="pages-container-viewport">
+  <div class="pages-container" id="pagesContainer">
+    <main class="page" id="pageFitness">
+      <section class="motivation-card" id="motivationCard">
+        <p id="motivationMessage">Loading your motivation...</p>
+      </section>
 
-    <section class="card calendar-card">
-      <div class="calendar-header">
-        <button class="icon-btn" id="prevMonthBtn" aria-label="Previous month">&#8592;</button>
-        <h2 id="calendarTitle">Month Year</h2>
-        <button class="icon-btn" id="nextMonthBtn" aria-label="Next month">&#8594;</button>
-      </div>
-      <div class="weekday-row" id="weekdayRow"></div>
-      <div class="calendar-grid" id="calendarGrid"></div>
-      <div class="legend" id="legend"></div>
-    </section>
+      <section class="card calendar-card">
+        <div class="calendar-header">
+          <button class="icon-btn" id="prevMonthBtn" aria-label="Previous month">&#8592;</button>
+          <h2 id="calendarTitle">Month Year</h2>
+          <button class="icon-btn" id="nextMonthBtn" aria-label="Next month">&#8594;</button>
+        </div>
+        <div class="weekday-row" id="weekdayRow"></div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="legend" id="legend"></div>
+      </section>
 
-    <section class="card stats-card">
-      <h2>Your Stats</h2>
-      <div class="stats-grid">
-        <div class="stat-tile">
-          <span class="stat-value" id="statTotal">0</span>
-          <span class="stat-label">Total sessions</span>
+      <section class="card stats-card">
+        <h2>Your Stats</h2>
+        <div class="stats-grid">
+          <div class="stat-tile">
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-label">Total sessions</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="statWeek">0</span>
+            <span class="stat-label">This week</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="statMonth">0</span>
+            <span class="stat-label">This month</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="statYear">0</span>
+            <span class="stat-label">This year</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="statBestStreak">0</span>
+            <span class="stat-label">Best streak</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="statTypesUsed">0</span>
+            <span class="stat-label">Activity types</span>
+          </div>
         </div>
-        <div class="stat-tile">
-          <span class="stat-value" id="statWeek">0</span>
-          <span class="stat-label">This week</span>
+        <h3>By activity</h3>
+        <div class="type-breakdown" id="typeBreakdown"></div>
+      </section>
+    </main>
+
+    <main class="page" id="pageWellness">
+      <section class="card calendar-card">
+        <div class="calendar-header">
+          <button class="icon-btn" id="prevWellnessMonthBtn" aria-label="Previous month">&#8592;</button>
+          <h2 id="wellnessCalendarTitle">Month Year</h2>
+          <button class="icon-btn" id="nextWellnessMonthBtn" aria-label="Next month">&#8594;</button>
         </div>
-        <div class="stat-tile">
-          <span class="stat-value" id="statMonth">0</span>
-          <span class="stat-label">This month</span>
+        <div class="weekday-row" id="wellnessWeekdayRow"></div>
+        <div class="calendar-grid" id="wellnessCalendarGrid"></div>
+      </section>
+
+      <section class="card stats-card">
+        <h2>Wellness Progress</h2>
+        <div class="stats-grid">
+          <div class="stat-tile">
+            <span class="stat-value" id="wStatAvgKg">-</span>
+            <span class="stat-label">Avg kg (month)</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="wStatAvgSleep">-</span>
+            <span class="stat-label">Avg sleep (month)</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="wStatAvgSteps">-</span>
+            <span class="stat-label">Avg pași (month)</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-value" id="wStatPerfectDays">0</span>
+            <span class="stat-label">Perfect days (month)</span>
+          </div>
         </div>
-        <div class="stat-tile">
-          <span class="stat-value" id="statYear">0</span>
-          <span class="stat-label">This year</span>
-        </div>
-        <div class="stat-tile">
-          <span class="stat-value" id="statBestStreak">0</span>
-          <span class="stat-label">Best streak</span>
-        </div>
-        <div class="stat-tile">
-          <span class="stat-value" id="statTypesUsed">0</span>
-          <span class="stat-label">Activity types</span>
-        </div>
-      </div>
-      <h3>By activity</h3>
-      <div class="type-breakdown" id="typeBreakdown"></div>
-    </section>
-  </main>
+        <h3>Kg trend (this month)</h3>
+        <div class="sparkline-wrap" id="wSparkKg"></div>
+        <h3>Sleep trend (h, this month)</h3>
+        <div class="sparkline-wrap" id="wSparkSleep"></div>
+        <h3>Pași trend (k, this month)</h3>
+        <div class="sparkline-wrap" id="wSparkSteps"></div>
+        <h3>Habits (this month)</h3>
+        <div class="type-breakdown" id="wHabitBreakdown"></div>
+      </section>
+    </main>
+  </div>
+  </div>
 
   <button class="fab" id="addSessionFab" aria-label="Log a session">+</button>
 
@@ -88,8 +136,8 @@
         <button class="icon-btn" id="closeSessionModalBtn" aria-label="Close">&times;</button>
       </div>
       <form id="sessionForm">
-        <label class="field-label" for="typeSelect">Activity type</label>
-        <div class="type-picker" id="typePicker"></div>
+        <label class="field-label" id="typePickerLabel">Activity type</label>
+        <div class="type-picker" id="typePicker" role="group" aria-labelledby="typePickerLabel"></div>
 
         <label class="field-label" for="dateInput">Date</label>
         <input type="date" id="dateInput" required>
@@ -118,7 +166,46 @@
     </div>
   </div>
 
+  <!-- Wellness entry modal -->
+  <div class="modal-overlay" id="wellnessModalOverlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="wellnessModalTitle">
+      <div class="modal-header">
+        <h2 id="wellnessModalTitle">Wellness check-in</h2>
+        <button class="icon-btn" id="closeWellnessModalBtn" aria-label="Close">&times;</button>
+      </div>
+      <form id="wellnessForm">
+        <label class="field-label" for="wellnessDateInput">Date</label>
+        <input type="date" id="wellnessDateInput" required>
+
+        <label class="field-label" for="kgInput">Greutate (kg)</label>
+        <input type="number" id="kgInput" step="0.1" min="0" max="200" placeholder="e.g. 54.5">
+
+        <label class="field-label">Somn</label>
+        <div class="somn-row">
+          <select id="somnHourInput" aria-label="Sleep hours"></select>
+          <span class="somn-sep">h</span>
+          <select id="somnQuarterInput" aria-label="Sleep minutes">
+            <option value="0">00</option>
+            <option value="15">15</option>
+            <option value="30">30</option>
+            <option value="45">45</option>
+          </select>
+        </div>
+
+        <label class="field-label">Obiceiuri</label>
+        <div class="checklist-grid" id="checklistGrid"></div>
+
+        <label class="field-label" for="pasiInput">Pași (k)</label>
+        <input type="number" id="pasiInput" step="0.1" min="0" max="100" placeholder="e.g. 8.5">
+
+        <button type="submit" class="primary-btn">Save check-in</button>
+      </form>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
+
+  <div class="fireworks-layer" id="fireworksLayer"></div>
 
   <script src="db.js"></script>
   <script src="app.js"></script>
