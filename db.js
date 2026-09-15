@@ -4,8 +4,9 @@
  * Small IndexedDB wrapper for storing fitness sessions.
  */
 const DB_NAME = 'myfitness-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_SESSIONS = 'sessions';
+const STORE_WELLNESS = 'wellness';
 
 let dbPromise = null;
 
@@ -21,6 +22,9 @@ function openDB() {
         const store = db.createObjectStore(STORE_SESSIONS, { keyPath: 'id', autoIncrement: true });
         store.createIndex('by_date', 'date', { unique: false });
         store.createIndex('by_type', 'type', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(STORE_WELLNESS)) {
+        db.createObjectStore(STORE_WELLNESS, { keyPath: 'date' });
       }
     };
 
@@ -87,6 +91,50 @@ async function getSessionsByDate(date) {
   });
 }
 
+async function putWellness(entry) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_WELLNESS, 'readwrite');
+    const store = tx.objectStore(STORE_WELLNESS);
+    const request = store.put(entry);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function deleteWellness(date) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_WELLNESS, 'readwrite');
+    const store = tx.objectStore(STORE_WELLNESS);
+    const request = store.delete(date);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getAllWellness() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_WELLNESS, 'readonly');
+    const store = tx.objectStore(STORE_WELLNESS);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getWellnessByDate(date) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_WELLNESS, 'readonly');
+    const store = tx.objectStore(STORE_WELLNESS);
+    const request = store.get(date);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
 window.FitnessDB = {
   openDB,
   addSession,
@@ -94,4 +142,8 @@ window.FitnessDB = {
   deleteSession,
   getAllSessions,
   getSessionsByDate,
+  putWellness,
+  deleteWellness,
+  getAllWellness,
+  getWellnessByDate,
 };

@@ -41,12 +41,31 @@ const MOTIVATION = {
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const WELLNESS_CHECK_ITEMS = [
+  { key: 'vacum', label: 'Vacum', emoji: '🌬️' },
+  { key: 'plansa', label: 'Plansă', emoji: '🧘' },
+  { key: 'apa', label: 'Apă', emoji: '💧' },
+  { key: 'micDejun', label: 'Mic-dejun', emoji: '🍳' },
+  { key: 'ex', label: 'Ex.', emoji: '🏋️' },
+  { key: 'pranz', label: 'Prânz', emoji: '🍽️' },
+  { key: 'cina', label: 'Cină', emoji: '🌙' },
+  { key: 'faraZahar', label: 'Fără zahăr', emoji: '🚫🍬' },
+];
+
 let allSessions = [];
 let sessionsByDate = new Map();
 let calendarCursor = new Date();
 calendarCursor.setDate(1);
 let selectedType = 'fitness';
 let currentDayModalDate = null;
+const STREAK_MODE_STORAGE_KEY = 'myfitness-streak-mode';
+let streakMode = localStorage.getItem(STREAK_MODE_STORAGE_KEY) || 'all';
+
+let allWellness = [];
+let wellnessByDate = new Map();
+let wellnessCursor = new Date();
+wellnessCursor.setDate(1);
+let currentPageIndex = 0;
 
 const $ = (id) => document.getElementById(id);
 
@@ -79,7 +98,14 @@ async function loadSessions() {
   }
 }
 
-function computeCurrentStreak() {
+function dateHasSessionOfMode(key, mode) {
+  const sessions = sessionsByDate.get(key);
+  if (!sessions || sessions.length === 0) return false;
+  if (mode === 'fitness') return sessions.some((s) => s.type === 'fitness');
+  return true;
+}
+
+function computeCurrentStreak(mode = streakMode) {
   let streak = 0;
   const cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
@@ -88,13 +114,13 @@ function computeCurrentStreak() {
   // If nothing today yet, streak calc should still count yesterday's chain,
   // but only starts "active" once today is logged. We count backwards from
   // today if today has a session, otherwise from yesterday.
-  if (!sessionsByDate.has(key)) {
+  if (!dateHasSessionOfMode(key, mode)) {
     cursor.setDate(cursor.getDate() - 1);
     key = toDateKey(cursor);
-    if (!sessionsByDate.has(key)) return 0;
+    if (!dateHasSessionOfMode(key, mode)) return 0;
   }
 
-  while (sessionsByDate.has(key)) {
+  while (dateHasSessionOfMode(key, mode)) {
     streak++;
     cursor.setDate(cursor.getDate() - 1);
     key = toDateKey(cursor);
@@ -135,7 +161,19 @@ function pickMotivation(streak) {
 function renderMotivation() {
   const streak = computeCurrentStreak();
   $('streakCount').textContent = String(streak);
+  $('streakLabel').textContent = streakMode === 'fitness' ? 'fitness streak' : 'day streak';
+  const toggleBtn = $('streakModeToggle');
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('active', streakMode === 'fitness');
+    toggleBtn.setAttribute('aria-pressed', String(streakMode === 'fitness'));
+  }
   $('motivationMessage').textContent = pickMotivation(streak);
+}
+
+function toggleStreakMode() {
+  streakMode = streakMode === 'fitness' ? 'all' : 'fitness';
+  localStorage.setItem(STREAK_MODE_STORAGE_KEY, streakMode);
+  renderMotivation();
 }
 
 function renderCalendar() {
@@ -215,7 +253,8 @@ function startOfWeek(date) {
 function renderStats() {
   const now = new Date();
   const weekStart = startOfWeek(now);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const viewedMonthStart = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
+  const viewedMonthEnd = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
   const yearStart = new Date(now.getFullYear(), 0, 1);
 
   let inWeek = 0;
@@ -226,9 +265,11 @@ function renderStats() {
   for (const s of allSessions) {
     const d = parseDateKey(s.date);
     if (d >= weekStart) inWeek++;
-    if (d >= monthStart) inMonth++;
+    if (d >= viewedMonthStart && d < viewedMonthEnd) {
+      inMonth++;
+      typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
+    }
     if (d >= yearStart) inYear++;
-    typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
   }
 
   $('statTotal').textContent = String(allSessions.length);
@@ -259,6 +300,308 @@ function renderAll() {
   renderMotivation();
   renderCalendar();
   renderStats();
+}
+
+// ---------- Wellness ----------
+
+async function loadWellness() {
+  allWellness = await window.FitnessDB.getAllWellness();
+  wellnessByDate = new Map();
+  for (const w of allWellness) {
+    wellnessByDate.set(w.date, w);
+  }
+}
+
+function findPreviousKg(beforeDateKey) {
+  const entries = allWellness
+    .filter((w) => w.kg != null && (!beforeDateKey || w.date < beforeDateKey))
+    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  return entries.length ? entries[0].kg : null;
+}
+
+function renderWellnessCalendar() {
+  const year = wellnessCursor.getFullYear();
+  const month = wellnessCursor.getMonth();
+  $('wellnessCalendarTitle').textContent = wellnessCursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const weekdayRow = $('wellnessWeekdayRow');
+  weekdayRow.innerHTML = WEEKDAY_LABELS.map((d) => `<span>${d}</span>`).join('');
+
+  const grid = $('wellnessCalendarGrid');
+  grid.innerHTML = '';
+
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayKey = toDateKey(new Date());
+
+  for (let i = 0; i < startOffset; i++) {
+    const empty = document.createElement('div');
+    empty.className = 'day-cell empty';
+    grid.appendChild(empty);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cellDate = new Date(year, month, day);
+    const key = toDateKey(cellDate);
+    const entry = wellnessByDate.get(key);
+
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+    if (key === todayKey) cell.classList.add('today');
+    if (entry) cell.classList.add('has-session');
+    if (isPerfectDay(entry)) cell.classList.add('perfect-day');
+
+    const number = document.createElement('span');
+    number.className = 'day-number';
+    number.textContent = String(day);
+    cell.appendChild(number);
+
+    if (entry) {
+      const dots = document.createElement('span');
+      dots.className = 'dots';
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      if (isPerfectDay(entry)) {
+        dot.classList.add('perfect');
+      } else {
+        dot.style.background = 'var(--accent)';
+      }
+      dots.appendChild(dot);
+      cell.appendChild(dots);
+    }
+
+    cell.addEventListener('click', () => openWellnessModal(key));
+    grid.appendChild(cell);
+  }
+}
+
+function average(values) {
+  if (!values.length) return null;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function isPerfectDay(entry) {
+  if (!entry || !entry.checks) return false;
+  return WELLNESS_CHECK_ITEMS.every((item) => entry.checks[item.key]);
+}
+
+function launchFireworks() {
+  const layer = $('fireworksLayer');
+  if (!layer) return;
+  const colors = ['#facc15', '#22d3ee', '#f97316', '#a3e635', '#6366f1', '#f87171'];
+  const bursts = 3;
+  const particlesPerBurst = 24;
+
+  for (let b = 0; b < bursts; b++) {
+    setTimeout(() => {
+      const originX = window.innerWidth * (0.25 + Math.random() * 0.5);
+      const originY = window.innerHeight * (0.25 + Math.random() * 0.35);
+      for (let i = 0; i < particlesPerBurst; i++) {
+        const particle = document.createElement('span');
+        particle.className = 'firework-particle';
+        const angle = (i / particlesPerBurst) * Math.PI * 2;
+        const distance = 60 + Math.random() * 80;
+        const fx = Math.cos(angle) * distance;
+        const fy = Math.sin(angle) * distance;
+        particle.style.left = `${originX}px`;
+        particle.style.top = `${originY}px`;
+        particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+        particle.style.setProperty('--fx', `${fx}px`);
+        particle.style.setProperty('--fy', `${fy}px`);
+        layer.appendChild(particle);
+        particle.addEventListener('animationend', () => particle.remove());
+      }
+    }, b * 250);
+  }
+}
+
+function makeSparkline(containerId, points, formatValue) {
+  const container = $(containerId);
+  if (!points.length) {
+    container.innerHTML = '<div class="sparkline-empty">No data yet</div>';
+    return;
+  }
+  const width = 300;
+  const height = 60;
+  const padding = 6;
+  const values = points.map((p) => p.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+
+  const coords = points.map((p, i) => {
+    const x = points.length === 1 ? width / 2 : padding + (i / (points.length - 1)) * (width - padding * 2);
+    const y = height - padding - ((p.value - min) / range) * (height - padding * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+
+  const last = points[points.length - 1];
+  const lastLabel = formatValue ? formatValue(last.value) : String(last.value);
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
+      <polyline points="${coords.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" />
+    </svg>
+    <div class="empty-state" style="padding-top:4px;">Latest: ${lastLabel}</div>
+  `;
+}
+
+function renderWellnessStats() {
+  const monthStart = new Date(wellnessCursor.getFullYear(), wellnessCursor.getMonth(), 1);
+  const monthEnd = new Date(wellnessCursor.getFullYear(), wellnessCursor.getMonth() + 1, 1);
+  const monthStartKey = toDateKey(monthStart);
+
+  const recent = allWellness
+    .filter((w) => {
+      const d = parseDateKey(w.date);
+      return d >= monthStart && d < monthEnd;
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  const kgValues = recent.filter((w) => w.kg != null).map((w) => ({ date: w.date, value: w.kg }));
+  const sleepValues = recent
+    .filter((w) => w.somnHour != null)
+    .map((w) => ({ date: w.date, value: w.somnHour + (w.somnQuarter || 0) / 60 }));
+  const stepValues = recent.filter((w) => w.pasi != null).map((w) => ({ date: w.date, value: w.pasi }));
+
+  $('wStatAvgKg').textContent = kgValues.length ? average(kgValues.map((v) => v.value)).toFixed(1) : '-';
+  $('wStatAvgSleep').textContent = sleepValues.length ? average(sleepValues.map((v) => v.value)).toFixed(1) + 'h' : '-';
+  $('wStatAvgSteps').textContent = stepValues.length ? average(stepValues.map((v) => v.value)).toFixed(1) : '-';
+
+  const perfectDaysThisMonth = recent.filter((w) => isPerfectDay(w)).length;
+  $('wStatPerfectDays').textContent = String(perfectDaysThisMonth);
+
+  makeSparkline('wSparkKg', kgValues, (v) => `${v.toFixed(1)} kg`);
+  makeSparkline('wSparkSleep', sleepValues, (v) => `${v.toFixed(1)}h`);
+  makeSparkline('wSparkSteps', stepValues, (v) => `${v.toFixed(1)}k`);
+
+  const habitCounts = {};
+  for (const item of WELLNESS_CHECK_ITEMS) habitCounts[item.key] = 0;
+  for (const w of recent) {
+    for (const item of WELLNESS_CHECK_ITEMS) {
+      if (w.checks && w.checks[item.key]) habitCounts[item.key]++;
+    }
+  }
+  const totalDays = recent.length || 1;
+  const breakdown = $('wHabitBreakdown');
+  breakdown.innerHTML = '';
+  for (const item of WELLNESS_CHECK_ITEMS) {
+    const count = habitCounts[item.key];
+    const pct = Math.round((count / totalDays) * 100);
+    const row = document.createElement('div');
+    row.className = 'type-row';
+    row.innerHTML = `
+      <span class="type-icon">${item.emoji}</span>
+      <span class="type-name">${item.label}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${pct}%;background:var(--accent)"></span></span>
+      <span class="type-count">${pct}%</span>
+    `;
+    breakdown.appendChild(row);
+  }
+}
+
+function renderWellnessAll() {
+  renderWellnessCalendar();
+  renderWellnessStats();
+}
+
+function buildChecklist(existingChecks) {
+  const grid = $('checklistGrid');
+  grid.innerHTML = '';
+  for (const item of WELLNESS_CHECK_ITEMS) {
+    const label = document.createElement('label');
+    label.className = 'checklist-item';
+    const checked = !!(existingChecks && existingChecks[item.key]);
+    if (checked) label.classList.add('checked');
+    label.innerHTML = `<input type="checkbox" data-key="${item.key}" ${checked ? 'checked' : ''}><span>${item.emoji} ${item.label}</span>`;
+    const input = label.querySelector('input');
+    input.addEventListener('change', () => label.classList.toggle('checked', input.checked));
+    grid.appendChild(label);
+  }
+}
+
+function populateSomnHourOptions() {
+  const select = $('somnHourInput');
+  select.innerHTML = '';
+  for (let h = 0; h <= 16; h++) {
+    const opt = document.createElement('option');
+    opt.value = String(h);
+    opt.textContent = String(h);
+    select.appendChild(opt);
+  }
+}
+
+function openWellnessModal(prefillDate) {
+  const dateKey = prefillDate || toDateKey(new Date());
+  const existing = wellnessByDate.get(dateKey);
+
+  $('wellnessDateInput').value = dateKey;
+  $('kgInput').value = existing && existing.kg != null ? existing.kg : (findPreviousKg(dateKey) ?? '');
+  $('somnHourInput').value = existing && existing.somnHour != null ? String(existing.somnHour) : '8';
+  $('somnQuarterInput').value = existing && existing.somnQuarter != null ? String(existing.somnQuarter) : '0';
+  $('pasiInput').value = existing && existing.pasi != null ? existing.pasi : '';
+  buildChecklist(existing ? existing.checks : null);
+
+  $('wellnessModalOverlay').classList.add('open');
+}
+
+function closeWellnessModal() {
+  $('wellnessModalOverlay').classList.remove('open');
+}
+
+async function handleWellnessFormSubmit(event) {
+  event.preventDefault();
+  const date = $('wellnessDateInput').value;
+  const checks = {};
+  $('checklistGrid').querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    checks[input.dataset.key] = input.checked;
+  });
+
+  const kgRaw = $('kgInput').value;
+  const pasiRaw = $('pasiInput').value;
+
+  const entry = {
+    date,
+    kg: kgRaw !== '' ? Math.round(Number(kgRaw) * 10) / 10 : null,
+    somnHour: Number($('somnHourInput').value),
+    somnQuarter: Number($('somnQuarterInput').value),
+    checks,
+    pasi: pasiRaw !== '' ? Math.round(Number(pasiRaw) * 10) / 10 : null,
+  };
+
+  try {
+    await window.FitnessDB.putWellness(entry);
+    showToast(isPerfectDay(entry) ? 'Perfect day! 🎉' : 'Check-in salvat');
+    closeWellnessModal();
+    await loadWellness();
+    renderWellnessAll();
+    if (isPerfectDay(entry)) launchFireworks();
+  } catch (err) {
+    console.error('Failed to save wellness entry', err);
+    showToast(`Error saving check-in: ${err.message}`);
+  }
+}
+
+// ---------- Pages navigation ----------
+
+function goToPage(index) {
+  currentPageIndex = Math.max(0, Math.min(1, index));
+  const container = $('pagesContainer');
+  container.style.transform = `translateX(-${currentPageIndex * 50}%)`;
+  const toggleBtn = $('pageToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.textContent = currentPageIndex === 0 ? '🧘' : '💪';
+    toggleBtn.setAttribute('aria-label', currentPageIndex === 0 ? 'Switch to Wellness page' : 'Switch to Fitness page');
+  }
+  const fab = $('addSessionFab');
+  fab.setAttribute('aria-label', currentPageIndex === 0 ? 'Log a session' : 'Log a wellness check-in');
+}
+
+function initPageNavigation() {
+  $('pageToggleBtn').addEventListener('click', () => {
+    goToPage(currentPageIndex === 0 ? 1 : 0);
+  });
 }
 
 // ---------- Session modal ----------
@@ -321,19 +664,24 @@ async function handleSessionFormSubmit(event) {
     timestamp: Date.now(),
   };
 
-  if (editingId) {
-    session.id = Number(editingId);
-    await window.FitnessDB.updateSession(session);
-    showToast('Session updated');
-  } else {
-    await window.FitnessDB.addSession(session);
-    showToast('Session logged. Nice work!');
-  }
+  try {
+    if (editingId) {
+      session.id = Number(editingId);
+      await window.FitnessDB.updateSession(session);
+      showToast('Session updated');
+    } else {
+      await window.FitnessDB.addSession(session);
+      showToast('Session logged. Nice work!');
+    }
 
-  closeSessionModal();
-  await loadSessions();
-  renderAll();
-  if (currentDayModalDate) renderDaySessionsList(currentDayModalDate);
+    closeSessionModal();
+    await loadSessions();
+    renderAll();
+    if (currentDayModalDate) renderDaySessionsList(currentDayModalDate);
+  } catch (err) {
+    console.error('Failed to save session', err);
+    showToast(`Error saving session: ${err.message}`);
+  }
 }
 
 // ---------- Day modal ----------
@@ -420,17 +768,23 @@ function toggleTheme() {
 
 function attachEventListeners() {
   $('themeToggleBtn').addEventListener('click', toggleTheme);
+  $('streakModeToggle').addEventListener('click', toggleStreakMode);
 
   $('prevMonthBtn').addEventListener('click', () => {
     calendarCursor.setMonth(calendarCursor.getMonth() - 1);
     renderCalendar();
+    renderStats();
   });
   $('nextMonthBtn').addEventListener('click', () => {
     calendarCursor.setMonth(calendarCursor.getMonth() + 1);
     renderCalendar();
+    renderStats();
   });
 
-  $('addSessionFab').addEventListener('click', () => openSessionModal());
+  $('addSessionFab').addEventListener('click', () => {
+    if (currentPageIndex === 0) openSessionModal();
+    else openWellnessModal();
+  });
   $('closeSessionModalBtn').addEventListener('click', closeSessionModal);
   $('sessionModalOverlay').addEventListener('click', (e) => {
     if (e.target === $('sessionModalOverlay')) closeSessionModal();
@@ -446,18 +800,55 @@ function attachEventListeners() {
     closeDayModal();
     openSessionModal(date);
   });
+
+  $('prevWellnessMonthBtn').addEventListener('click', () => {
+    wellnessCursor.setMonth(wellnessCursor.getMonth() - 1);
+    renderWellnessCalendar();
+    renderWellnessStats();
+  });
+  $('nextWellnessMonthBtn').addEventListener('click', () => {
+    wellnessCursor.setMonth(wellnessCursor.getMonth() + 1);
+    renderWellnessCalendar();
+    renderWellnessStats();
+  });
+  $('closeWellnessModalBtn').addEventListener('click', closeWellnessModal);
+  $('wellnessModalOverlay').addEventListener('click', (e) => {
+    if (e.target === $('wellnessModalOverlay')) closeWellnessModal();
+  });
+  $('wellnessForm').addEventListener('submit', handleWellnessFormSubmit);
+
+  initPageNavigation();
 }
 
 async function init() {
-  initTheme();
-  buildTypePicker();
-  attachEventListeners();
-  await loadSessions();
-  renderAll();
+  try {
+    initTheme();
+    buildTypePicker();
+    populateSomnHourOptions();
+    attachEventListeners();
+    await loadSessions();
+    await loadWellness();
+    renderAll();
+    renderWellnessAll();
+    goToPage(0);
+  } catch (err) {
+    console.error('init failed', err);
+    showToast(`Error: ${err.message}`);
+  }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch((err) => console.warn('SW registration failed', err));
   }
 }
+
+window.addEventListener('error', (event) => {
+  console.error('Unhandled error', event.error || event.message);
+  showToast(`Error: ${(event.error && event.error.message) || event.message}`);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled rejection', event.reason);
+  showToast(`Error: ${event.reason && event.reason.message ? event.reason.message : event.reason}`);
+});
 
 document.addEventListener('DOMContentLoaded', init);
