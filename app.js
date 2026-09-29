@@ -42,18 +42,19 @@ const MOTIVATION = {
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const WELLNESS_CHECK_ITEMS = [
-  { key: 'vacum', label: 'Vacum', emoji: '🌬️' },
-  { key: 'plansa', label: 'Plansă', emoji: '🧘' },
-  { key: 'apa', label: 'Apă', emoji: '💧' },
-  { key: 'micDejun', label: 'Mic-dejun', emoji: '🍳' },
-  { key: 'ex', label: 'Ex.', emoji: '🏋️' },
-  { key: 'pranz', label: 'Prânz', emoji: '🍽️' },
-  { key: 'cina', label: 'Cină', emoji: '🌙' },
-  { key: 'faraZahar', label: 'Fără zahăr', emoji: '🍬' },
+  { key: 'vacum', label: 'Vacum', emoji: '🌬️', color: '#a78bfa' },
+  { key: 'plansa', label: 'Plansă', emoji: '🧘', color: '#38bdf8' },
+  { key: 'apa', label: 'Apă', emoji: '💧', color: '#22d3ee' },
+  { key: 'micDejun', label: 'Mic-dejun', emoji: '🍳', color: '#fbbf24' },
+  { key: 'ex', label: 'Ex.', emoji: '🏋️', color: '#ef4444' },
+  { key: 'pranz', label: 'Prânz', emoji: '🍽️', color: '#a3e635' },
+  { key: 'cina', label: 'Cină', emoji: '🌙', color: '#f97316' },
+  { key: 'faraZahar', label: 'Fără zahăr', emoji: '🍬', color: '#c084fc' },
 ];
 
 let allSessions = [];
 let sessionsByDate = new Map();
+let activityFilter = null;
 let calendarCursor = new Date();
 calendarCursor.setDate(1);
 let selectedType = 'workout';
@@ -67,6 +68,7 @@ if (streakMode === 'fitness') {
 
 let allWellness = [];
 let wellnessByDate = new Map();
+let wellnessFilter = null;
 let wellnessCursor = new Date();
 wellnessCursor.setDate(1);
 let currentPageIndex = 0;
@@ -136,10 +138,9 @@ function computeCurrentStreak(mode = streakMode) {
     if (!dateHasSessionOfMode(key, mode)) return 0;
   }
 
-  // Fitness-only streaks forgive a single missed day: if exactly one day is
-  // skipped and activity resumes right after, the streak keeps going.
+  // Fitness-only streaks forgive single missed days: any isolated gap of
+  // exactly one day is skipped over and activity resumes right after.
   const allowGrace = mode === 'workout';
-  let graceUsed = false;
 
   while (true) {
     if (dateHasSessionOfMode(key, mode)) {
@@ -149,12 +150,11 @@ function computeCurrentStreak(mode = streakMode) {
       continue;
     }
 
-    if (allowGrace && !graceUsed) {
+    if (allowGrace) {
       const peekCursor = new Date(cursor);
       peekCursor.setDate(peekCursor.getDate() - 1);
       const peekKey = toDateKey(peekCursor);
       if (dateHasSessionOfMode(peekKey, mode)) {
-        graceUsed = true;
         cursor.setDate(cursor.getDate() - 1);
         key = toDateKey(cursor);
         continue;
@@ -246,6 +246,12 @@ function renderCalendar() {
     if (key === todayKey) cell.classList.add('today');
     if (sessions.length > 0) cell.classList.add('has-session');
     if (sessions.some((s) => s.type === 'workout')) cell.classList.add('workout-day');
+    if (activityFilter) {
+      const matches = sessions.some((s) => s.type === activityFilter);
+      cell.classList.toggle('filter-match', matches);
+      cell.classList.toggle('filter-dim', !matches);
+      if (matches) cell.style.setProperty('--filter-color', ACTIVITY_TYPES[activityFilter].color);
+    }
 
     const number = document.createElement('span');
     number.className = 'day-number';
@@ -277,9 +283,17 @@ function renderLegend() {
   legend.innerHTML = Object.entries(ACTIVITY_TYPES)
     .map(
       ([key, def]) =>
-        `<span class="legend-item"><span class="legend-dot" style="background:${def.color}"></span>${def.emoji} ${def.label}</span>`
+        `<button type="button" class="legend-item${key === activityFilter ? ' active' : ''}" data-type="${key}" style="--legend-color:${def.color}"><span class="legend-dot" style="background:${def.color}"></span>${def.emoji} ${def.label}</button>`
     )
     .join('');
+
+  legend.querySelectorAll('.legend-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      activityFilter = activityFilter === type ? null : type;
+      renderCalendar();
+    });
+  });
 }
 
 function startOfWeek(date) {
@@ -448,6 +462,13 @@ function renderWellnessCalendar() {
     if (key === todayKey) cell.classList.add('today');
     if (entry) cell.classList.add('has-session');
     if (isPerfectDay(entry)) cell.classList.add('perfect-day');
+    if (wellnessFilter) {
+      const matches = !!(entry && entry.checks && entry.checks[wellnessFilter]);
+      const def = WELLNESS_CHECK_ITEMS.find((i) => i.key === wellnessFilter);
+      cell.classList.toggle('filter-match', matches);
+      cell.classList.toggle('filter-dim', !matches);
+      if (matches) cell.style.setProperty('--filter-color', def.color);
+    }
 
     const number = document.createElement('span');
     number.className = 'day-number';
@@ -471,6 +492,25 @@ function renderWellnessCalendar() {
     cell.addEventListener('click', () => openWellnessModal(key));
     grid.appendChild(cell);
   }
+
+  renderWellnessLegend();
+}
+
+function renderWellnessLegend() {
+  const legend = $('wellnessLegend');
+  if (!legend) return;
+  legend.innerHTML = WELLNESS_CHECK_ITEMS.map(
+    (item) =>
+      `<button type="button" class="legend-item${item.key === wellnessFilter ? ' active' : ''}" data-key="${item.key}" style="--legend-color:${item.color}"><span class="legend-dot" style="background:${item.color}"></span>${item.emoji} ${item.label}</button>`
+  ).join('');
+
+  legend.querySelectorAll('.legend-item').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      wellnessFilter = wellnessFilter === key ? null : key;
+      renderWellnessCalendar();
+    });
+  });
 }
 
 function average(values) {

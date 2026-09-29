@@ -280,16 +280,32 @@ body {
 .day-cell .dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; max-width: 26px; }
 .day-cell .dot { width: 5px; height: 5px; border-radius: 50%; }
 .day-cell:active { transform: scale(0.95); }
+.day-cell.filter-match { border-color: var(--filter-color); box-shadow: 0 0 0 1px var(--filter-color); }
+.day-cell.filter-dim { opacity: 0.35; }
 
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
   margin-top: 12px;
   font-size: 11px;
   color: var(--text-dim);
 }
-.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+}
+.legend-item:hover { border-color: var(--legend-color); }
+.legend-item.active { border-color: var(--legend-color); background: color-mix(in srgb, var(--legend-color) 18%, transparent); color: var(--text); }
 .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 
 .stats-grid {
